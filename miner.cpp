@@ -48,7 +48,16 @@ public:
     }
 };
 
-queue<Block> q;
+struct blockPriority {
+
+bool operator() (Block a, Block b)
+{
+    return a.get_fee() < b.get_fee() || (a.get_fee()==b.get_fee()&&a.get_weight()>b.get_weight());
+}
+
+};
+
+priority_queue<Block, vector<Block>, blockPriority> pq;
 
 void read_csv()
 {
@@ -81,7 +90,7 @@ void read_csv()
             {
                 Block block(id, fee, weight, par_id);
                 //cout << "Pushing...\n";
-                q.push(block);
+                pq.push(block);
             }
     }    
  
@@ -91,6 +100,6 @@ void read_csv()
 int main()
 {
     read_csv();   
-    cout << q.size() << "\n";
+    cout << pq.size() << "\n";
     return 0;
 }
