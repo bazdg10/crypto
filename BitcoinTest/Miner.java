@@ -32,10 +32,22 @@ public class Miner {
                 fee = row[1];
                 weight = row[2];
                 par_id = "";
-                if (row.length>3)   par_id = row[3];   
-                //else    lca++;
+                if (row.length==3) {
                 Transaction transaction = new Transaction(id, fee, weight, par_id);
-                if (row.length<5) {
+                if (transactions.containsKey(par_id)) {
+                    transactions.get(par_id).add(transaction);
+                } else {
+                    List<Transaction> b = new ArrayList<>();
+                    b.add(transaction);
+                    transactions.put(par_id, b);
+                }
+                    continue;
+                }
+                par_id = row[3];
+                String[] parents = row[3].split(";");   
+                //else    lca++;
+                if (parents.length < 2) {
+                    Transaction transaction = new Transaction(id, fee, weight, par_id);
                     if (transactions.containsKey(par_id)) {
                         transactions.get(par_id).add(transaction);
                     } else {
@@ -44,17 +56,18 @@ public class Miner {
                         transactions.put(par_id, b);
                     }
                 }
-                else if (row.length>4)   {
+                else if (parents.length>1)   {
                     // Multiple Transactions preceed
-                    for ( int i=3; i<row.length; i++ ) {
-                        if (transactions.containsKey(row[i])) {
-                            transactions.get(row[i]).add(transaction);
+                    Transaction transaction = new Transaction(id, fee, weight, parents[0]);
+                    for ( int i=1; i<parents.length; i++ ) {
+                        if (transactions.containsKey(parents[i])) {
+                            transactions.get(parents[i]).add(transaction);
                         } else {
                             List<Transaction> b = new ArrayList<>();
                             b.add(transaction);
-                            multiTransactions.put(row[i], b);
+                            multiTransactions.put(parents[i], b);
                         }
-                        transaction.addParentTransactions(row[i]);
+                        transaction.addParentTransactions(parents[i]);
                     }   
                 }
             }
@@ -145,14 +158,13 @@ class Transaction {
     private int weight;
     private String id;
     private String par_id;
-    HashSet<String> par_ids;
+    HashSet<String> par_ids = new HashSet<>();
     public Transaction(String id, String fee, String weight, String par)
     {
         this.id = id;
         this.fee = Integer.parseInt(fee);// (fee);
         this.weight = Integer.parseInt(weight);
         this.par_id = par;
-        HashSet<String> par_ids = new HashSet<>();
         par_ids.add(par);
     }
 
