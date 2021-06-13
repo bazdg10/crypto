@@ -8,44 +8,19 @@ import java.util.*;
 
 public class Miner { 
 
-    private static PriorityQueue<Block> readyBlocks = new PriorityQueue<>(new BlockComparator());
+    private static PriorityQueue<Transaction> readyTransactions = new PriorityQueue<>(new TransactionComparator());
     private static Queue<String> readyHashes = new LinkedList<>();
+    private static HashSet<String> multiCheckers = new HashSet<>();
 
-/*    public static byte[] getSHA(String input) throws NoSuchAlgorithmException
-    { 
-        // Static getInstance method is called with hashing SHA 
-        MessageDigest md = MessageDigest.getInstance("SHA-256"); 
-  
-        // digest() method called 
-        // to calculate message digest of an input 
-        // and return array of byte
-        return md.digest(input.getBytes(StandardCharsets.UTF_8)); 
-    }
-    
-    public static String toHexString(byte[] hash)
-    {
-        // Convert byte array into signum representation 
-        BigInteger number = new BigInteger(1, hash); 
-  
-        // Convert message digest into hex value 
-        StringBuilder hexString = new StringBuilder(number.toString(16)); 
-  
-        // Pad with leading zeros
-        while (hexString.length() < 32) 
-        { 
-            hexString.insert(0, '0'); 
-        } 
-  
-        return hexString.toString(); 
-    }
-*/  
-    private static HashMap<String, List<Block>> readFile() {
+    private static List<HashMap<String, List<Transaction>>> readFile() {
         System.out.println("Hola");
         String file = "../mempool1.csv";
         BufferedReader reader = null;
         String line = "";
-        HashMap<String, List<Block>> blocks = new HashMap<>();
-        //List<Block> blocks = new ArrayList<>();
+        List<HashMap<String, List<Transaction>>> allTransactions = new ArrayList<>();
+        HashMap<String, List<Transaction>> transactions = new HashMap<>();
+        HashMap<String, List<Transaction>> multiTransactions = new HashMap<>();
+        
         try {
             //int lca = 0;
             reader = new BufferedReader(new FileReader(file));
@@ -59,15 +34,29 @@ public class Miner {
                 par_id = "";
                 if (row.length>3)   par_id = row[3];   
                 //else    lca++;
-                Block block = new Block(id, fee, weight, par_id);
-                if (blocks.containsKey(par_id)) {
-                    blocks.get(par_id).add(block);
-                } else {
-                    List<Block> b = new ArrayList<>();
-                    b.add(block);
-                    blocks.put(par_id, b);
+                Transaction transaction = new Transaction(id, fee, weight, par_id);
+                if (row.length<5) {
+                    if (transactions.containsKey(par_id)) {
+                        transactions.get(par_id).add(transaction);
+                    } else {
+                        List<Transaction> b = new ArrayList<>();
+                        b.add(transaction);
+                        transactions.put(par_id, b);
+                    }
                 }
-                //System.out.println(lca);
+                else if (row.length>4)   {
+                    // Multiple Transactions preceed
+                    for ( int i=3; i<row.length; i++ ) {
+                        if (transactions.containsKey(row[i])) {
+                            transactions.get(row[i]).add(transaction);
+                        } else {
+                            List<Transaction> b = new ArrayList<>();
+                            b.add(transaction);
+                            multiTransactions.put(row[i], b);
+                        }
+                        transaction.addParentTransactions(row[i]);
+                    }   
+                }
             }
         } catch( Exception e ) {
             e.printStackTrace();
@@ -78,70 +67,61 @@ public class Miner {
                 e.printStackTrace();
             }
         }
-        return blocks;
+        allTransactions.add(transactions);
+        allTransactions.add(multiTransactions);
+        return allTransactions;
     }
 
-    private static void activateChildNode(HashMap<String, List<Block>> blocks) {
+    private static void activateChildNode(HashMap<String, List<Transaction>> transactions) {
         
         while(!readyHashes.isEmpty()) {
             String hashVal = readyHashes.remove();
-            if (blocks.containsKey(hashVal)) {
-                for ( Block block : blocks.get(hashVal) ) {
-                    readyBlocks.add(block);
+            if (transactions.containsKey(hashVal)) {
+                for ( Transaction transaction : transactions.get(hashVal) ) {
+                    readyTransactions.add(transaction);
                 }
-                blocks.remove(hashVal);
+                transactions.remove(hashVal);
             }
         }
         return;
     }
 
-    public static int performTransaction(Block block) {
-
-        //try 
-        //{
-            //System.out.println("HashCode Generated by SHA-256 for:"); 
-            String s = block.getId();
-            //String s2 = block.getPar_id(); 
-            //s += s2;
-            //System.out.println("\n" + s1 + " : " + toHexString(getSHA(s1))); 
-            readyHashes.add(s);            
-            //System.out.println("\n" + s2 + " : " + toHexString(getSHA(s2))); 
-            return block.getFee();
-        //}
-        // For specifying wrong message digest algorithms 
-       /* catch (NoSuchAlgorithmException e) { 
-            System.out.println("Exception thrown for incorrect algorithm: " + e); 
-        }*/ 
-        //return 0;
+    public static int performTransaction(Transaction transaction) {
+            String s = transaction.getId();
+            readyHashes.add(s);
+            multiCheckers.add(s);            
+            return transaction.getFee();
     }
 
     // Driver code 
-    public static void main(String args[])
-    {
+    public static void main(String args[]) {
         int netTransactionGain = 0;
         int threshold = 4000000;
         //List<Block> blocks = new ArrayList<Block>();
-        HashMap<String, List<Block>> blocks = new HashMap<>();
-        blocks = readFile();
+        List<HashMap<String, List<Transaction>>> allTransactions = new ArrayList<>();
+        allTransactions = readFile();
+        HashMap<String, List<Transaction>> transactions = allTransactions.get(0);
+        HashMap<String, List<Transaction>> multiTransactions = allTransactions.get(1);
+        System.out.println(multiTransactions.size());
         readyHashes.add("");
         int c = 0;
-        while (!blocks.isEmpty()||!readyBlocks.isEmpty()) {
-            if (!blocks.isEmpty())
-                activateChildNode(blocks);
-            List<Block> carryOut = new ArrayList<>();   
+        while (!transactions.isEmpty()||!readyTransactions.isEmpty()) {
+            if (!transactions.isEmpty())
+                activateChildNode(transactions);
+            List<Transaction> carryOut = new ArrayList<>();   
             int totWt = 0;
-            while(!readyBlocks.isEmpty()) {
-                Block head = readyBlocks.peek();
+            while(!readyTransactions.isEmpty()) {
+                Transaction head = readyTransactions.peek();
                 if (head.getWeight()+totWt<threshold) {
                     totWt += head.getWeight();
-                    carryOut.add(readyBlocks.poll());
+                    carryOut.add(readyTransactions.poll());
                 } else break;
             }
             
-            for (Block block : carryOut) {
-                netTransactionGain += performTransaction(block);
+            for (Transaction transaction : carryOut) {
+                netTransactionGain += performTransaction(transaction);
                 c++;
-                System.out.println(c);
+                //System.out.println(c);
                 
             }
         }
@@ -151,42 +131,48 @@ public class Miner {
 } 
 
 
-class BlockComparator implements Comparator<Block> {
+class TransactionComparator implements Comparator<Transaction> {
 
     @Override
-    public int compare(Block o1, Block o2) {
+    public int compare(Transaction o1, Transaction o2) {
         return o1.getFee() - o2.getFee();
     }
 
 } 
-class Block {
+class Transaction {
     
     private int fee;
     private int weight;
     private String id;
     private String par_id;
-
-    public Block(String id, String fee, String weight, String par_id)
+    HashSet<String> par_ids;
+    public Transaction(String id, String fee, String weight, String par)
     {
         this.id = id;
         this.fee = Integer.parseInt(fee);// (fee);
         this.weight = Integer.parseInt(weight);
-        this.par_id = par_id;
+        this.par_id = par;
+        HashSet<String> par_ids = new HashSet<>();
+        par_ids.add(par);
     }
-    String getId()
-    {
+
+    public void addParentTransactions(String par) {
+        par_ids.add(par);
+    }
+
+    String getId() {
         return id;
     }    
-    String getPar_id()
-    {
+    String getPar_id() {
         return par_id;
     }
-    int getFee()
-    {
+    int getFee() {
         return fee;
     }
-    int getWeight()
-    {
+    int getWeight() {
         return weight;
+    }
+    boolean parentTransactionsLeft() {
+        return !par_ids.isEmpty();
     }
 }
