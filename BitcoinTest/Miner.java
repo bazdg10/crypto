@@ -10,11 +10,11 @@ public class Miner {
 
     private static PriorityQueue<Transaction> readyTransactions = new PriorityQueue<>(new TransactionComparator());
     private static Queue<String> readyHashes = new LinkedList<>();
-    private static HashSet<String> multiCheckers = new HashSet<>();
+    //private static HashSet<String> multiCheckers = new HashSet<>();
 
     private static List<HashMap<String, List<Transaction>>> readFile() {
         System.out.println("Hola");
-        String file = "../mempool1.csv";
+        String file = "../mempool.csv";
         BufferedReader reader = null;
         String line = "";
         List<HashMap<String, List<Transaction>>> allTransactions = new ArrayList<>();
@@ -59,13 +59,13 @@ public class Miner {
                 else if (parents.length>1)   {
                     // Multiple Transactions preceed
                     Transaction transaction = new Transaction(id, fee, weight, parents[0]);
-                    for ( int i=1; i<parents.length; i++ ) {
+                    for ( int i=0; i<parents.length; i++ ) {
                         if (transactions.containsKey(parents[i])) {
                             transactions.get(parents[i]).add(transaction);
                         } else {
                             List<Transaction> b = new ArrayList<>();
                             b.add(transaction);
-                            multiTransactions.put(parents[i], b);
+                            transactions.put(parents[i], b);
                         }
                         transaction.addParentTransactions(parents[i]);
                     }   
@@ -91,7 +91,9 @@ public class Miner {
             String hashVal = readyHashes.remove();
             if (transactions.containsKey(hashVal)) {
                 for ( Transaction transaction : transactions.get(hashVal) ) {
-                    readyTransactions.add(transaction);
+                    if (transaction.dumpParentTransactions(hashVal)) {
+                    readyTransactions.add(transaction);                        
+                    }
                 }
                 transactions.remove(hashVal);
             }
@@ -101,8 +103,7 @@ public class Miner {
 
     public static int performTransaction(Transaction transaction) {
             String s = transaction.getId();
-            readyHashes.add(s);
-            multiCheckers.add(s);            
+            readyHashes.add(s);         
             return transaction.getFee();
     }
 
@@ -134,8 +135,7 @@ public class Miner {
             for (Transaction transaction : carryOut) {
                 netTransactionGain += performTransaction(transaction);
                 c++;
-                //System.out.println(c);
-                
+                System.out.println(c);
             }
         }
          
@@ -184,7 +184,10 @@ class Transaction {
     int getWeight() {
         return weight;
     }
-    boolean parentTransactionsLeft() {
-        return !par_ids.isEmpty();
-    }
+    boolean dumpParentTransactions(String par) {
+        if (par_ids.contains(par)) {
+            par_ids.remove(par);
+        }
+        return par_ids.isEmpty();
+    }    
 }
