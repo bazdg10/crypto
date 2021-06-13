@@ -2,7 +2,6 @@
 #include<fstream>
 #define ll long long
 using namespace std;
-
 ll strtoll(string s)
 {
     ll res = 0;
@@ -48,6 +47,9 @@ public:
     }
 };
 
+//unordered_set<string> available; 
+
+
 struct blockPriority {
 
 bool operator() (Block a, Block b)
@@ -57,7 +59,8 @@ bool operator() (Block a, Block b)
 
 };
 
-priority_queue<Block, vector<Block>, blockPriority> pq;
+priority_queue<Block, vector<Block>, blockPriority> available;
+map<string, Block> notInitiable; // Parent transaction not complete
 
 void read_csv()
 {
@@ -82,24 +85,85 @@ void read_csv()
                 if (c==3)   weight = w;
                 w = "";
             }
-            w += x;
+            else
+                w += x;
         }
         par_id = w;
         //cout << id << ", " << fee << ", " << weight << ", " << par_id << "\n";
         if (id!=""&&id!="tx_id") 
             {
+                //cout << par_id << "\n";
                 Block block(id, fee, weight, par_id);
                 //cout << "Pushing...\n";
-                pq.push(block);
+                if (par_id=="")
+                    available.push(block);
+                else{
+                    pair<string, Block> p = make_pair(par_id, block);
+                    notInitiable.insert(p);
+                    //notInitiable[par_id] = block;     
+                }
             }
     }    
  
+}
+unordered_set<string> resolvedHeaders;
+void dispatchUpdater()
+{
+    ifstream res;
+    res.open("dispatch-status.txt");
+    string hashValue;
+    getline(res, hashValue, '\n');
+    resolvedHeaders.insert(hashValue);
+}
+
+void dispatch(Block block)
+{
+    ofstream req;
+    req.open("dispatch-status.txt");
+    string request = block.get_par_id(); // + ", " + block.get_id();
+    if (request=="")    request = "rootElem";
+    req << request;
+    req << "\n";
+    request = block.get_id();
+    req << request;
+    req.close();
 }
 
 
 int main()
 {
     read_csv();   
-    cout << pq.size() << "\n";
+    ll threshold = 4000000;
+    cout << available.size() << " " << notInitiable.size();
+ 
+    //cout << pq.size() << "\n";
+    // I have my transactions
+
+    resolvedHeaders.insert("");
+    while (!available.empty())
+    {
+        vector<Block> dispatcher;
+        ll wt_sum = 0;
+        while(!available.empty())
+        {
+            Block b = available.top();
+            if (wt_sum+b.get_weight()>threshold)  break;
+            dispatcher.push_back(b);
+            wt_sum += b.get_weight();
+            available.pop();
+        }
+        for( int i=0; i<dispatcher.size(); i++ )
+            dispatch(dispatcher[i]);
+    }
+
+
+    // Looking for possible transactions
+    
+    
+    
+    
+    
+    
+    
     return 0;
 }
