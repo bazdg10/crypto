@@ -1,16 +1,11 @@
 package BitcoinTest;
-import java.io.*;
-import java.math.BigInteger; 
-import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest; 
-import java.security.NoSuchAlgorithmException; 
+import java.io.*; 
 import java.util.*;
 
 public class Miner { 
 
     private static PriorityQueue<Transaction> readyTransactions = new PriorityQueue<>(new TransactionComparator());
     private static Queue<String> readyHashes = new LinkedList<>();
-    //private static HashSet<String> multiCheckers = new HashSet<>();
 
     private static List<HashMap<String, List<Transaction>>> readFile() {
         System.out.println("Hola");
@@ -118,8 +113,9 @@ public class Miner {
         HashMap<String, List<Transaction>> multiTransactions = allTransactions.get(1);
         System.out.println(multiTransactions.size());
         readyHashes.add("");
-        int c = 0;
-        while (!transactions.isEmpty()||!readyTransactions.isEmpty()) {
+//        int blockCount = 0;
+            String blockHash = "";
+            while (!transactions.isEmpty()||!readyTransactions.isEmpty()) {
             if (!transactions.isEmpty())
                 activateChildNode(transactions);
             List<Transaction> carryOut = new ArrayList<>();   
@@ -131,15 +127,13 @@ public class Miner {
                     carryOut.add(readyTransactions.poll());
                 } else break;
             }
-            
             for (Transaction transaction : carryOut) {
-                netTransactionGain += performTransaction(transaction);
-                c++;
-                System.out.println(c);
+                blockHash = transaction.getId();
+                netTransactionGain+= performTransaction(transaction);
             }
+            System.out.println(netTransactionGain);
+            System.out.println(blockHash);
         }
-         
-        System.out.println(netTransactionGain);
     } 
 } 
 
