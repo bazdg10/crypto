@@ -1,4 +1,4 @@
-package BitcoinTest;
+package Bitcoin;
 import java.io.*; 
 import java.util.*;
 
@@ -7,17 +7,13 @@ public class Miner {
     private static PriorityQueue<Transaction> readyTransactions = new PriorityQueue<>(new TransactionComparator());
     private static Queue<String> readyHashes = new LinkedList<>();
 
-    private static List<HashMap<String, List<Transaction>>> readFile() {
-        System.out.println("Hola");
+    private static HashMap<String, List<Transaction>> readFile() {
         String file = "../mempool.csv";
         BufferedReader reader = null;
         String line = "";
-        List<HashMap<String, List<Transaction>>> allTransactions = new ArrayList<>();
-        HashMap<String, List<Transaction>> transactions = new HashMap<>();
-        HashMap<String, List<Transaction>> multiTransactions = new HashMap<>();
+        HashMap<String, List<Transaction>> transactions = new HashMap();
         
         try {
-            //int lca = 0;
             reader = new BufferedReader(new FileReader(file));
             while((line= reader.readLine())!=null) {
                 String[] row = line.split(",");
@@ -40,7 +36,6 @@ public class Miner {
                 }
                 par_id = row[3];
                 String[] parents = row[3].split(";");   
-                //else    lca++;
                 if (parents.length < 2) {
                     Transaction transaction = new Transaction(id, fee, weight, par_id);
                     if (transactions.containsKey(par_id)) {
@@ -75,9 +70,7 @@ public class Miner {
                 e.printStackTrace();
             }
         }
-        allTransactions.add(transactions);
-        allTransactions.add(multiTransactions);
-        return allTransactions;
+       return transactions;
     }
 
     private static void activateChildNode(HashMap<String, List<Transaction>> transactions) {
@@ -106,20 +99,19 @@ public class Miner {
     public static void main(String args[]) {
         int netTransactionGain = 0;
         int threshold = 4000000;
-        //List<Block> blocks = new ArrayList<Block>();
-        List<HashMap<String, List<Transaction>>> allTransactions = new ArrayList<>();
-        allTransactions = readFile();
-        HashMap<String, List<Transaction>> transactions = allTransactions.get(0);
-        HashMap<String, List<Transaction>> multiTransactions = allTransactions.get(1);
-        System.out.println(multiTransactions.size());
+       
+        HashMap<String, List<Transaction>> transactions = new HashMap<>();
+        transactions = readFile();
         readyHashes.add("");
-//        int blockCount = 0;
+        int transCount = 0;
             String blockHash = "";
             while (!transactions.isEmpty()||!readyTransactions.isEmpty()) {
+            
             if (!transactions.isEmpty())
                 activateChildNode(transactions);
             List<Transaction> carryOut = new ArrayList<>();   
             int totWt = 0;
+            
             while(!readyTransactions.isEmpty()) {
                 Transaction head = readyTransactions.peek();
                 if (head.getWeight()+totWt<threshold) {
@@ -127,12 +119,12 @@ public class Miner {
                     carryOut.add(readyTransactions.poll());
                 } else break;
             }
+
             for (Transaction transaction : carryOut) {
-                blockHash = transaction.getId();
-                netTransactionGain+= performTransaction(transaction);
+                transCount++;
             }
-            System.out.println(netTransactionGain);
-            System.out.println(blockHash);
+
+            System.out.println(transCount);
         }
     } 
 } 
