@@ -6,6 +6,7 @@ public class Miner {
 
     private static PriorityQueue<Transaction> readyTransactions = new PriorityQueue<>(new TransactionComparator());
     private static Queue<String> readyHashes = new LinkedList<>();
+    private static int threshold = 4000000;
 
     private static HashMap<String, List<Transaction>> readFile() {
         String file = "../mempool.csv";
@@ -14,6 +15,7 @@ public class Miner {
         HashMap<String, List<Transaction>> transactions = new HashMap();
         
         try {
+            //int lca = 0;
             reader = new BufferedReader(new FileReader(file));
             while((line= reader.readLine())!=null) {
                 String[] row = line.split(",");
@@ -32,6 +34,7 @@ public class Miner {
                     b.add(transaction);
                     transactions.put(par_id, b);
                 }
+                    readyTransactions.add(transaction);
                     continue;
                 }
                 par_id = row[3];
@@ -74,9 +77,49 @@ public class Miner {
     }
 
     private static void activateChildNode(HashMap<String, List<Transaction>> transactions) {
-        
-        while(!readyHashes.isEmpty()) {
-            String hashVal = readyHashes.remove();
+        int tot = 0;
+        int initialWt = 0;
+        int blocks = 0;
+        int netGain = 0;
+        int curGain = 0;
+        while(!readyTransactions.isEmpty()) {
+            Transaction transc = readyTransactions.poll();
+            String hashVal = transc.getId();
+            int weight = transc.getWeight();
+            if (initialWt+weight>threshold) {
+                blocks++;
+                // Use File Ops Here
+    /*FileWriter fw = null;
+    try{
+        fw = new FileWriter("block.txt", true);
+        BufferedWriter bw = new BufferedWriter(fw);
+        PrintWriter out = new PrintWriter(bw)
+        {
+            out.println("the text");
+            //more code
+            out.println("more text");
+            //more code
+        } catch (IOException e) {
+        e.printStackTrace();
+        } finally {
+            try {
+                fw.close();
+            } catch( Exception e ) {
+                e.printStackTrace();
+            }
+        }
+                
+                
+      */          
+                initialWt = weight;
+                curGain = 0;
+            }
+            if (tot==0)
+                System.out.println(transc.getId());
+            curGain = performTransaction(transc);
+            tot++;
+            netGain += curGain;
+            
             if (transactions.containsKey(hashVal)) {
                 for ( Transaction transaction : transactions.get(hashVal) ) {
                     if (transaction.dumpParentTransactions(hashVal)) {
@@ -86,6 +129,7 @@ public class Miner {
                 transactions.remove(hashVal);
             }
         }
+        System.out.println(tot);
         return;
     }
 
@@ -97,35 +141,13 @@ public class Miner {
 
     // Driver code 
     public static void main(String args[]) {
-        int netTransactionGain = 0;
-        int threshold = 4000000;
-       
+        
+        //List<Block> blocks = new ArrayList<Block>();
         HashMap<String, List<Transaction>> transactions = new HashMap<>();
         transactions = readFile();
-        readyHashes.add("");
-        int transCount = 0;
-            String blockHash = "";
-            while (!transactions.isEmpty()||!readyTransactions.isEmpty()) {
-            
-            if (!transactions.isEmpty())
+        //readyHashes.add("");
+        if (!transactions.isEmpty())
                 activateChildNode(transactions);
-            List<Transaction> carryOut = new ArrayList<>();   
-            int totWt = 0;
-            
-            while(!readyTransactions.isEmpty()) {
-                Transaction head = readyTransactions.peek();
-                if (head.getWeight()+totWt<threshold) {
-                    totWt += head.getWeight();
-                    carryOut.add(readyTransactions.poll());
-                } else break;
-            }
-
-            for (Transaction transaction : carryOut) {
-                transCount++;
-            }
-
-            System.out.println(transCount);
-        }
     } 
 } 
 
@@ -133,8 +155,18 @@ public class Miner {
 class TransactionComparator implements Comparator<Transaction> {
 
     @Override
-    public int compare(Transaction o1, Transaction o2) {
-        return o1.getFee() - o2.getFee();
+    public int compare(Transaction lhs, Transaction rhs) {
+        if (lhs.resolved.contains(rhs.getId()))
+            return 1;
+        if (rhs.resolved.contains(lhs.getId()))
+            return -1;
+        if (lhs.getFee()>rhs.getFee())    return -1;
+        else {
+            if (lhs.getFee()==rhs.getFee()) {
+                if (lhs.getWeight()<rhs.getWeight())    return -1;
+            }
+        }
+        return 1;
     }
 
 } 
@@ -145,6 +177,7 @@ class Transaction {
     private String id;
     private String par_id;
     HashSet<String> par_ids = new HashSet<>();
+    HashSet<String> resolved = new HashSet<>();
     public Transaction(String id, String fee, String weight, String par)
     {
         this.id = id;
@@ -172,6 +205,7 @@ class Transaction {
     }
     boolean dumpParentTransactions(String par) {
         if (par_ids.contains(par)) {
+            resolved.add(par);
             par_ids.remove(par);
         }
         return par_ids.isEmpty();
