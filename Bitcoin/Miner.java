@@ -1,6 +1,8 @@
 package Bitcoin;
 import java.io.*; 
 import java.util.*;
+//import java.util.concurrent.BlockingQueue;
+//import java.util.concurrent.LinkedBlockingDeque;
 
 public class Miner { 
 
@@ -76,42 +78,55 @@ public class Miner {
     }
 
     private static void registerBlock (Queue<String> block) throws IOException{
-        File file = new File("blocks.txt");
+        File file = new File("block.txt");
+        //File file = new File("blocks_with_newLine_bw_them.txt");
         FileWriter fw = new FileWriter(file, true);
         PrintWriter pw = new PrintWriter(fw);
         
         while(!block.isEmpty()) {
             String x = block.remove();
             pw.println(x);
+            if (block.isEmpty())    break;
         }
+        //pw.println("\n");
         pw.close();
     }
 
 
-    private static void activateChildNode(HashMap<String, List<Transaction>> transactions) throws IOException {
-        int tot = 0;
-        int initialWt = 0;
+    private static void activateChildTransactions(HashMap<String, List<Transaction>> transactions) throws IOException {
 
+        int initialWt = 0;
+        //int tot = 0;
         /*int netGain = 0;
         int curGain = 0;*/
+        //BlockingQueue<String> block = new LinkedBlockingDeque<>();
+        //BlockingQueue<String> copy = new LinkedBlockingDeque<>();
         Queue<String> block = new LinkedList<>();
-        Queue<String> copy = new LinkedList<>();
         while(!readyTransactions.isEmpty()) {
             Transaction transc = readyTransactions.poll();
             String hashVal = transc.getId();
             int weight = transc.getWeight();
-            
             if (initialWt+weight>threshold) {
-                copy = block;
-                block.clear();
-                registerBlock(copy);
-                initialWt = weight;
+                initialWt = 0;
+                registerBlock(block);
+                // These commented out ops should be used for large no. of entries
+                // Small test case so we go on without threads as there are 3 write calls in this loop
+                //copy = block;
+                //block.clear();
+                /*Thread t = new Thread(new AddBlockToLegder(copy));
+                t.start();
+                try {
+                    t.join();
+                } catch(Exception e) {
+                    continue;
+                }
+                */
             }
-           
             block.add(transc.getId());
-            //curGain
+            initialWt += transc.getWeight();
             performTransaction(transc);
-            tot++;
+            //curGain
+            //tot++;
             //netGain += curGain;
             
             if (transactions.containsKey(hashVal)) {
@@ -123,10 +138,11 @@ public class Miner {
                 transactions.remove(hashVal);
             }
         }
+
+        // Checking if block weight didn't reach threshold to add remaining blocks
         if (!block.isEmpty())
             registerBlock(block);
-
-        System.out.println(tot);
+        //System.out.println(tot);
         return;
     }
 
@@ -140,7 +156,7 @@ public class Miner {
         HashMap<String, List<Transaction>> transactions = new HashMap<>();
         transactions = readFile();
         if (!transactions.isEmpty())
-                activateChildNode(transactions);
+                activateChildTransactions(transactions);
     } 
 } 
 
@@ -204,3 +220,31 @@ class Transaction {
         return par_ids.isEmpty();
     }    
 }
+/*
+class AddBlockToLegder implements Runnable {
+
+    private BlockingQueue<String> block = new LinkedBlockingDeque<>();
+
+    public AddBlockToLegder ( BlockingQueue<String> block ) {
+        this.block = block;       
+    }
+
+    @Override
+    public void run() {
+        try {
+            File file = new File("block.txt");
+            FileWriter fw = new FileWriter(file, true);
+            PrintWriter pw = new PrintWriter(fw);
+            
+            while(!block.isEmpty()) {
+                String x = block.remove();
+                pw.println(x);
+            }
+            pw.close();
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+
+    }
+}
+*/
