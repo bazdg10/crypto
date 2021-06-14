@@ -5,7 +5,6 @@ import java.util.*;
 public class Miner { 
 
     private static PriorityQueue<Transaction> readyTransactions = new PriorityQueue<>(new TransactionComparator());
-    private static Queue<String> readyHashes = new LinkedList<>();
     private static int threshold = 4000000;
 
     private static HashMap<String, List<Transaction>> readFile() {
@@ -76,49 +75,44 @@ public class Miner {
        return transactions;
     }
 
-    private static void activateChildNode(HashMap<String, List<Transaction>> transactions) {
+    private static void registerBlock (Queue<String> block) throws IOException{
+        File file = new File("blocks.txt");
+        FileWriter fw = new FileWriter(file, true);
+        PrintWriter pw = new PrintWriter(fw);
+        
+        while(!block.isEmpty()) {
+            String x = block.remove();
+            pw.println(x);
+        }
+        pw.close();
+    }
+
+
+    private static void activateChildNode(HashMap<String, List<Transaction>> transactions) throws IOException {
         int tot = 0;
         int initialWt = 0;
-        int blocks = 0;
-        int netGain = 0;
-        int curGain = 0;
+
+        /*int netGain = 0;
+        int curGain = 0;*/
+        Queue<String> block = new LinkedList<>();
+        Queue<String> copy = new LinkedList<>();
         while(!readyTransactions.isEmpty()) {
             Transaction transc = readyTransactions.poll();
             String hashVal = transc.getId();
             int weight = transc.getWeight();
+            
             if (initialWt+weight>threshold) {
-                blocks++;
-                // Use File Ops Here
-    /*FileWriter fw = null;
-    try{
-        fw = new FileWriter("block.txt", true);
-        BufferedWriter bw = new BufferedWriter(fw);
-        PrintWriter out = new PrintWriter(bw)
-        {
-            out.println("the text");
-            //more code
-            out.println("more text");
-            //more code
-        } catch (IOException e) {
-        e.printStackTrace();
-        } finally {
-            try {
-                fw.close();
-            } catch( Exception e ) {
-                e.printStackTrace();
-            }
-        }
-                
-                
-      */          
+                copy = block;
+                block.clear();
+                registerBlock(copy);
                 initialWt = weight;
-                curGain = 0;
             }
-            if (tot==0)
-                System.out.println(transc.getId());
-            curGain = performTransaction(transc);
+           
+            block.add(transc.getId());
+            //curGain
+            performTransaction(transc);
             tot++;
-            netGain += curGain;
+            //netGain += curGain;
             
             if (transactions.containsKey(hashVal)) {
                 for ( Transaction transaction : transactions.get(hashVal) ) {
@@ -129,23 +123,22 @@ public class Miner {
                 transactions.remove(hashVal);
             }
         }
+        if (!block.isEmpty())
+            registerBlock(block);
+
         System.out.println(tot);
         return;
     }
 
-    public static int performTransaction(Transaction transaction) {
-            String s = transaction.getId();
-            readyHashes.add(s);         
+    public static int performTransaction(Transaction transaction) {   
             return transaction.getFee();
     }
 
     // Driver code 
-    public static void main(String args[]) {
-        
-        //List<Block> blocks = new ArrayList<Block>();
+    public static void main(String args[]) throws IOException {
+
         HashMap<String, List<Transaction>> transactions = new HashMap<>();
         transactions = readFile();
-        //readyHashes.add("");
         if (!transactions.isEmpty())
                 activateChildNode(transactions);
     } 
