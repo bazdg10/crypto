@@ -1,5 +1,5 @@
 # Summer Of Bitcoin
-# Java | C++
+# C++
 
 Given a list of transactions validate and initiate the transactions and print the order of the transactions performed<br />
 
